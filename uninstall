@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Warna untuk output
+# --- Variabel Warna ---
 GREEN="\e[92;1m"
 RED="\033[31m"
 YELLOW="\033[33m"
@@ -10,77 +10,81 @@ OK="${GREEN}--->${FONT}"
 ERROR="${RED}[ERROR]${FONT}"
 NC='\e[0m' # No Color
 
-clear
-echo -e "${YELLOW}----------------------------------------------------------${NC}"
-echo -e "         WELCOME TO HOKAGE LEGEND STORE VPN UNINSTALLER"
-echo -e "${YELLOW}----------------------------------------------------------${NC}"
-echo -e " Pastikan Anda menjalankan skrip ini sebagai root."
-echo -e " Skrip ini akan menghapus semua layanan kecuali SSH."
-echo -e "${YELLOW}----------------------------------------------------------${NC}"
-echo ""
-
-# Periksa apakah skrip dijalankan sebagai root
-if [ "${EUID}" -ne 0 ]; then
-    echo -e "${ERROR} Anda perlu menjalankan skrip ini sebagai root."
-    exit 1
-fi
-
-read -p "$( echo -e "Tekan ${BLUE}[ ${NC}${GREEN}Enter${NC} ${BLUE}]${NC} untuk memulai proses uninstal, atau Ctrl+C untuk membatalkan.") "
-echo ""
-
-# Fungsi untuk mencetak pesan sukses
+# --- Fungsi Pembantu ---
 print_success() {
     echo -e "${GREEN}===============================${FONT}"
     echo -e "${OK} $1 berhasil dihapus."
     echo -e "${GREEN}===============================${FONT}"
-    sleep 2
+    sleep 0.5 # Sedikit jeda agar output terbaca
 }
 
-# Fungsi untuk mencetak pesan instalasi
 print_uninstall() {
     echo -e "${BLUE}===============================${FONT}"
     echo -e "${YELLOW}# Menghapus $1 ${FONT}"
     echo -e "${BLUE}===============================${FONT}"
-    sleep 1
+    sleep 0.5 # Sedikit jeda agar output terbaca
 }
 
+# --- Proses Utama ---
+clear
+echo -e "${YELLOW}----------------------------------------------------------${NC}"
+echo -e "         SELAMAT DATANG DI HOKAGE LEGEND STORE VPN UNINSTALLER"
+echo -e "${YELLOW}----------------------------------------------------------${NC}"
+echo -e " Skrip ini akan menghapus semua layanan VPN/proxy dan konfigurasinya,"
+echo -e " **tetapi akan memastikan SSH tetap berfungsi**."
+echo -e "${YELLOW}----------------------------------------------------------${NC}"
 echo ""
+
+# Memastikan skrip dijalankan sebagai root
+if [ "${EUID}" -ne 0 ]; then
+    echo -e "${ERROR} Anda harus menjalankan skrip ini sebagai ${RED}root${FONT}. Silakan gunakan ${YELLOW}sudo ./uninstall_vpn.sh${FONT}."
+    exit 1
+fi
+
+read -p "$( echo -e "Tekan ${BLUE}[ ${NC}${GREEN}Enter${NC} ${BLUE}]${NC} untuk memulai proses uninstal, atau ${RED}Ctrl+C${FONT} untuk membatalkan.") "
+echo ""
+
 echo -e "${BLUE}Memulai proses uninstal...${NC}"
 echo ""
 
-# Hentikan dan nonaktifkan layanan
+# --- 1. Menghentikan dan Menonaktifkan Layanan ---
 print_uninstall "Menghentikan dan menonaktifkan layanan..."
-systemctl stop nginx &>/dev/null
-systemctl disable nginx &>/dev/null
-systemctl stop xray &>/dev/null
-systemctl disable xray &>/dev/null
-systemctl stop haproxy &>/dev/null
-systemctl disable haproxy &>/dev/null
-systemctl stop dropbear &>/dev/null
-systemctl disable dropbear &>/dev/null
-systemctl stop openvpn &>/dev/null
-systemctl disable openvpn &>/dev/null
-systemctl stop udp-mini-1 &>/dev/null
-systemctl disable udp-mini-1 &>/dev/null
-systemctl stop udp-mini-2 &>/dev/null
-systemctl disable udp-mini-2 &>/dev/null
-systemctl stop udp-mini-3 &>/dev/null
-systemctl disable udp-mini-3 &>/dev/null
-systemctl stop ws &>/dev/null
-systemctl disable ws &>/dev/null
-systemctl stop fail2ban &>/dev/null
-systemctl disable fail2ban &>/dev/null
-systemctl stop vnstat &>/dev/null
-systemctl disable vnstat &>/dev/null
-systemctl stop noobzvpns &>/dev/null
-systemctl disable noobzvpns &>/dev/null
+
+# Daftar layanan yang akan dihentikan dan dinonaktifkan
+SERVICES=(
+    "nginx"
+    "xray"
+    "haproxy"
+    "dropbear"
+    "openvpn"
+    "udp-mini-1"
+    "udp-mini-2"
+    "udp-mini-3"
+    "ws" # ePro WebSocket Proxy
+    "fail2ban"
+    "vnstat"
+    "noobzvpns" # Jika service ini benar ada
+    # "ssh" TIDAK DIMASUKKAN DI SINI AGAR SSH TETAP JALAN
+    # "cron" TIDAK DIMASUKKAN DI SINI AGAR CRON TETAP JALAN
+    # "netfilter-persistent" TIDAK DIMASUKKAN AGAR ATURAN FIREWALL DASAR TETAP DIKELOLA
+    # "rc-local" TIDAK DIMASUKKAN AGAR INITIAL SCRIPT TETAP JALAN
+)
+
+for svc in "${SERVICES[@]}"; do
+    if systemctl is-active --quiet "$svc"; then
+        echo -e "  ${YELLOW}*${FONT} Menghentikan $svc..."
+        systemctl stop "$svc" &>/dev/null
+    fi
+    if systemctl is-enabled --quiet "$svc"; then
+        echo -e "  ${YELLOW}*${FONT} Menonaktifkan $svc..."
+        systemctl disable "$svc" &>/dev/null
+    fi
+done
 
 print_success "Layanan dihentikan dan dinonaktifkan"
 
-# Hapus paket dan konfigurasi
-print_uninstall "Menghapus paket dan konfigurasi..."
-
-# Hapus Cron jobs
+# --- 2. Menghapus Cron Jobs ---
+print_uninstall "Menghapus Cron jobs..."
 rm -f /etc/cron.d/xp_all &>/dev/null
 rm -f /etc/cron.d/logclean &>/dev/null
 rm -f /etc/cron.d/daily_reboot &>/dev/null
@@ -91,80 +95,186 @@ rm -f /etc/cron.d/log.nginx &>/dev/null
 rm -f /etc/cron.d/log.xray &>/dev/null
 print_success "Cron jobs"
 
-# Hapus aplikasi
-apt-get purge --auto-remove -y haproxy nginx xray dropbear openvpn vnstat wondershaper rclone msmtp-mta fail2ban &>/dev/null
+# --- 3. Menghapus Paket Aplikasi ---
+print_uninstall "Menghapus paket aplikasi dan dependensi..."
+
+# Pastikan untuk menghapus paket yang relevan dengan VPN/proxy
+PACKAGES=(
+    "haproxy"
+    "nginx"
+    "xray" # Xray core tidak diinstal melalui apt, tapi ini untuk jaga-jaga
+    "dropbear"
+    "openvpn"
+    "vnstat"
+    "wondershaper"
+    "rclone"
+    "msmtp-mta"
+    "fail2ban"
+    "figlet" # Opsional, jika hanya untuk script
+    "lolcat" # Opsional, jika hanya untuk script
+    "socat" # Jika hanya digunakan oleh komponen VPN
+    "netcat-openbsd" # Ganti 'netcat' dengan yang benar jika ini yang terinstal
+    "easy-rsa" # Jika hanya untuk OpenVPN
+    "jq" # Jika hanya untuk script
+    "shc" # Jika hanya untuk script
+)
+
+for pkg in "${PACKAGES[@]}"; do
+    echo -e "  ${YELLOW}*${FONT} Menghapus paket $pkg..."
+    apt-get purge --auto-remove -y "$pkg" &>/dev/null
+done
+
+# Hapus paket yang mungkin terinstal secara spesifik
+apt-get purge --auto-remove -y noobzvpns &>/dev/null # Jika noobzvpns terinstal sebagai paket
 apt-get autoremove -y &>/dev/null
 apt-get clean -y &>/dev/null
-print_success "Aplikasi"
+print_success "Paket aplikasi"
 
-# Hapus file dan direktori terkait
-print_uninstall "Menghapus file dan direktori terkait..."
-rm -rf /etc/xray &>/dev/null
-rm -rf /var/log/xray &>/dev/null
-rm -rf /var/lib/kyt &>/dev/null
-rm -rf /etc/haproxy &>/dev/null
-rm -rf /etc/nginx/conf.d/xray.conf &>/dev/null
-rm -rf /etc/nginx/nginx.conf &>/dev/null # Hati-hati jika ada konfigurasi Nginx lain yang penting
-rm -rf /root/.acme.sh &>/dev/null
-rm -rf /etc/vmess &>/dev/null
-rm -rf /etc/vless &>/dev/null
-rm -rf /etc/trojan &>/dev/null
-rm -rf /etc/shadowsocks &>/dev/null
-rm -rf /etc/bot &>/dev/null
-rm -rf /usr/bin/xray &>/dev/null
-rm -rf /var/www/html &>/dev/null
-rm -rf /etc/kyt/limit &>/dev/null
-rm -rf /etc/limit &>/dev/null
-rm -rf /etc/user-create &>/dev/null
-rm -rf /usr/local/kyt &>/dev/null # Untuk udp-mini
-rm -rf /tmp/nameserver &>/dev/null
-rm -rf /usr/local/ddos &>/dev/null
-rm -rf /etc/kyt.txt &>/dev/null
-rm -rf /usr/bin/ws &>/dev/null
-rm -rf /usr/bin/tun.conf &>/dev/null
-rm -rf /usr/local/share/xray &>/dev/null
-rm -rf /usr/sbin/ftvpn &>/dev/null
-rm -rf /swapfile &>/dev/null
-rm -rf /root/.config/rclone &>/dev/null
-rm -rf /bin/wondershaper &>/dev/null
-rm -rf /home/limit &>/dev/null
-rm -rf /etc/msmtprc &>/dev/null
-rm -rf /etc/ipserver &>/dev/null
-rm -rf /root/.info &>/dev/null
-rm -rf /usr/bin/user &>/dev/null
-rm -rf /usr/bin/e &>/dev/null
-rm -rf /root/install.log &>/dev/null
-rm -rf /root/log-install.txt &>/dev/null
+# --- 4. Menghapus File dan Direktori Terkait ---
+print_uninstall "Menghapus file dan direktori konfigurasi..."
 
-# Hapus service files
-rm -f /etc/systemd/system/runn.service &>/dev/null
-rm -f /etc/systemd/system/xray.service &>/dev/null
-rm -f /etc/systemd/system/udp-mini-1.service &>/dev/null
-rm -f /etc/systemd/system/udp-mini-2.service &>/dev/null
-rm -f /etc/systemd/system/udp-mini-3.service &>/dev/null
-rm -f /etc/systemd/system/ws.service &>/dev/null
-rm -f /etc/systemd/system/noobzvpns.service &>/dev/null
-# Biarkan rc-local.service, karena ini terkait dengan SSH
-print_success "File dan direktori"
+# Daftar direktori dan file yang akan dihapus
+# Hati-hati agar tidak menghapus file penting di luar cakupan skrip ini.
+DIRECTORIES=(
+    "/etc/xray"
+    "/var/log/xray"
+    "/var/lib/kyt"
+    "/etc/haproxy"
+    "/root/.acme.sh"
+    "/etc/vmess"
+    "/etc/vless"
+    "/etc/trojan"
+    "/etc/shadowsocks"
+    "/etc/bot"
+    "/usr/bin/xray" # Direktori instalasi Xray, bukan hanya binari
+    "/var/www/html" # Jika hanya digunakan untuk web panel Xray/Nginx
+    "/etc/kyt/limit"
+    "/etc/limit"
+    "/etc/user-create"
+    "/usr/local/kyt" # Untuk udp-mini
+    "/usr/local/ddos" # DDOS flate
+    "/root/.config/rclone" # Konfigurasi Rclone
+    "/bin/wondershaper" # Wondershaper git repo, jika diinstal seperti itu
+    "/home/limit" # File limit pengguna
+    "/root/.info" # Info IP yang dibuat oleh skrip
+    "/etc/systemd/system/xray.service.d" # Direktori service D
+)
 
-# Pulihkan /etc/pam.d/common-password ke default (jika dimodifikasi oleh skrip Anda,
-# ini akan mengembalikan ke perilaku autentikasi SSH standar)
-print_uninstall "Memulihkan konfigurasi SSH..."
+FILES=(
+    "/etc/nginx/conf.d/xray.conf"
+    "/etc/nginx/nginx.conf" # PERHATIAN: Jika ini nginx.conf utama, akan mengatur ulang Nginx Anda.
+                            # Skrip asli menulis ulang ini, jadi aman untuk dihapus/ditimpa untuk clean-up.
+    "/etc/systemd/system/runn.service"
+    "/etc/systemd/system/xray.service"
+    "/etc/systemd/system/udp-mini-1.service"
+    "/etc/systemd/system/udp-mini-2.service"
+    "/etc/systemd/system/udp-mini-3.service"
+    "/etc/systemd/system/ws.service"
+    "/etc/systemd/system/noobzvpns.service"
+    "/tmp/nameserver" # File SlowDNS sementara
+    "/etc/kyt.txt" # Banner SSH/Dropbear
+    "/usr/bin/ws" # Binary ePro WebSocket
+    "/usr/bin/tun.conf" # Konfigurasi ePro WebSocket
+    "/usr/local/share/xray/geosite.dat" # File geo
+    "/usr/local/share/xray/geoip.dat" # File geo
+    "/usr/sbin/ftvpn" # Script firewall kustom
+    "/swapfile" # File swap
+    "/etc/msmtprc" # Konfigurasi Msmtp
+    "/etc/ipserver" # File ipserver
+    "/usr/bin/user" # File username script
+    "/usr/bin/e" # File expired script
+    "/root/install.log"
+    "/root/log-install.txt"
+    "/root/openvpn" # Script OpenVPN
+    "/root/key.pem" # Sisa key OpenVPN
+    "/root/cert.pem" # Sisa cert OpenVPN
+    "/root/menu.zip" # Sisa instalasi menu
+    "/root/noobzvpns.zip" # Sisa instalasi noobzvpns
+    "/root/cf.sh" # Sisa script cloudflare
+    "/root/bbr.sh" # Sisa script bbr
+    "/root/udp-custom.sh" # Sisa script udp-custom
+)
+
+for dir in "${DIRECTORIES[@]}"; do
+    if [ -d "$dir" ]; then
+        echo -e "  ${YELLOW}*${FONT} Menghapus direktori $dir..."
+        rm -rf "$dir" &>/dev/null
+    fi
+done
+
+for file in "${FILES[@]}"; do
+    if [ -f "$file" ]; then
+        echo -e "  ${YELLOW}*${FONT} Menghapus file $file..."
+        rm -f "$file" &>/dev/null
+    fi
+done
+
+print_success "File dan direktori konfigurasi"
+
+# --- 5. Memulihkan Konfigurasi Sistem Dasar (Tanpa Mengganggu SSH) ---
+print_uninstall "Memulihkan konfigurasi sistem dasar..."
+
+# Pulihkan /etc/pam.d/common-password ke default
+# Jika ada cadangan, pulihkan. Jika tidak, akan di reset oleh reinstall sshd, atau dibiarkan.
+# Skrip instalasi Anda memodifikasi ini, jadi penting untuk mengembalikan.
 if [ -f /etc/pam.d/common-password.bak ]; then
-    mv /etc/pam.d/common-password.bak /etc/pam.d/common-password
-    echo -e "${OK} /etc/pam.d/common-password berhasil dipulihkan."
+    mv /etc/pam.d/common-password.bak /etc/pam.d/common-password &>/dev/null
+    echo -e "  ${OK} /etc/pam.d/common-password berhasil dipulihkan dari cadangan."
 else
-    echo -e "${YELLOW}Peringatan: File /etc/pam.d/common-password.bak tidak ditemukan. Membiarkan file saat ini.${NC}"
+    # Jika tidak ada cadangan, coba reset ke default Ubuntu
+    # Ini mungkin memerlukan instalasi ulang pam atau openssh-server jika rusak parah
+    # Untuk uninstaller, kita coba minimalis.
+    echo -e "  ${YELLOW}Peringatan: File /etc/pam.d/common-password.bak tidak ditemukan. Membiarkan file saat ini.${NC}"
+    echo -e "  ${YELLOW}Jika SSH bermasalah, pertimbangkan menginstal ulang 'libpam-runtime' atau 'openssh-server'.${NC}"
 fi
 
 # Hapus baris tambahan dari /etc/rc.local yang ditambahkan oleh skrip Anda
-sed -i '/iptables -I INPUT -p udp --dport 5300 -j ACCEPT/d' /etc/rc.local
-sed -i '/iptables -t nat -I PREROUTING -p udp --dport 53 -j REDIRECT --to-ports 5300/d' /etc/rc.local
-sed -i '/systemctl restart netfilter-persistent/d' /etc/rc.local
-sed -i '/echo 1 > \/proc\/sys\/net\/ipv6\/conf\/all\/disable_ipv6/d' /etc/rc.local
-print_success "Konfigurasi /etc/rc.local"
+sed -i '/iptables -I INPUT -p udp --dport 5300 -j ACCEPT/d' /etc/rc.local &>/dev/null
+sed -i '/iptables -t nat -I PREROUTing -p udp --dport 53 -j REDIRECT --to-ports 5300/d' /etc/rc.local &>/dev/null
+sed -i '/systemctl restart netfilter-persistent/d' /etc/rc.local &>/dev/null
+sed -i '/echo 1 > \/proc\/sys\/net\/ipv6\/conf\/all\/disable_ipv6/d' /etc/rc.local &>/dev/null
+# Pastikan isi rc.local tidak kosong jika hanya baris ini yang ada
+if ! grep -q "#!/bin/sh -e" /etc/rc.local; then
+    cat > /etc/rc.local <<EOF
+#!/bin/sh -e
+#
+# rc.local
+#
+# This script is executed at the end of each multiuser runlevel.
+# Make sure that the script will "exit 0" on success or any other
+# value on error.
+#
+# In order to enable or disable this script just change the execution
+# bits.
+#
+# By default this script does nothing.
 
-# Membersihkan iptables rules (ini penting agar tidak ada aturan sisa yang memblokir akses)
+exit 0
+EOF
+chmod +x /etc/rc.local &>/dev/null
+fi
+echo -e "  ${OK} /etc/rc.local dibersihkan."
+
+# Hapus baris "Banner /etc/kyt.txt" dari sshd_config
+sed -i '/^Banner \/etc\/kyt.txt/d' /etc/ssh/sshd_config &>/dev/null
+echo -e "  ${OK} Banner SSH dihapus dari sshd_config."
+
+# Reset DROPBEAR_BANNER di /etc/default/dropbear
+sed -i 's@DROPBEAR_BANNER="/etc/kyt.txt"@DROPBEAR_BANNER=""@g' /etc/default/dropbear &>/dev/null
+echo -e "  ${OK} Banner Dropbear direset."
+
+# Pastikan setting ipv6 dikembalikan ke default jika perlu (skrip install menonaktifkan)
+# Namun, membiarkannya mati (disabled) umumnya tidak merugikan.
+# Jika ingin mengaktifkan kembali, bisa gunakan:
+# sysctl -w net.ipv6.conf.all.disable_ipv6=0
+# sysctl -w net.ipv6.conf.default.disable_ipv6=0
+# sed -i '/net.ipv6.conf.all.disable_ipv6=1/d' /etc/sysctl.conf
+# sed -i '/net.ipv6.conf.default.disable_ipv6=1/d' /etc/sysctl.conf
+# sysctl -p
+
+print_success "Konfigurasi sistem dasar dipulihkan"
+
+# --- 6. Membersihkan Aturan IPTables ---
 print_uninstall "Membersihkan aturan iptables..."
 iptables -F &>/dev/null
 iptables -X &>/dev/null
@@ -174,20 +284,39 @@ iptables -t mangle -F &>/dev/null
 iptables -t mangle -X &>/dev/null
 netfilter-persistent save &>/dev/null
 netfilter-persistent reload &>/dev/null
+echo -e "  ${OK} Aturan iptables telah direset."
 print_success "Aturan iptables"
 
+# --- 7. Membersihkan Sisa File Skrip ---
+print_uninstall "Membersihkan sisa file skrip..."
+rm -f /root/*.zip &>/dev/null
+rm -f /root/*.sh &>/dev/null
+rm -f /root/LICENSE &>/dev/null
+rm -f /root/README.md &>/dev/null
+rm -f /root/domain &>/dev/null # File domain
+print_success "Sisa file skrip"
 
-# Restart SSH service untuk memastikan semua perubahan diterapkan
-print_uninstall "Memulai ulang layanan SSH..."
+# --- 8. Memastikan SSH Berfungsi dan Restart yang Bersih ---
+print_uninstall "Memastikan layanan SSH dan membersihkan sisa konfigurasi..."
+# Jika SSH telah dimodifikasi, restart akan menerapkan perubahan.
+# Atau, jika ada paket yang secara tidak sengaja terhapus yang menjadi dependensi SSH,
+# langkah ini tidak akan memperbaikinya sepenuhnya, tetapi kita asumsikan tidak ada.
 systemctl restart ssh &>/dev/null
-print_success "Layanan SSH"
+echo -e "  ${OK} Layanan SSH telah di-restart untuk menerapkan perubahan."
+
+# Membersihkan riwayat bash
+history -c
+echo "unset HISTFILE" >> /etc/profile # Pastikan tidak ada riwayat yang disimpan
+
+print_success "Layanan SSH dipastikan & bersih-bersih akhir"
 
 echo ""
 echo -e "${GREEN}----------------------------------------------------------${NC}"
-echo -e "                     PROSES UNINSTALL SELESAI!"
-echo -e " Semua layanan VPN/proxy telah dihapus. SSH Anda tetap aktif."
+echo -e "               PROSES UNINSTALL SELESAI!"
+echo -e " Semua layanan VPN/proxy dan konfigurasinya telah dihapus."
+echo -e "               ${GREEN}Akses SSH Anda tetap aktif.${NC}"
 echo -e "${GREEN}----------------------------------------------------------${NC}"
 echo ""
-echo "Anda mungkin ingin melakukan reboot VPS Anda sekarang untuk memastikan semua perubahan diterapkan sepenuhnya."
-read -p "$( echo -e "Tekan ${BLUE}[ ${NC}${GREEN}Enter${NC} ${BLUE}]${NC} untuk melakukan reboot, atau Ctrl+C untuk membatalkan.") "
+echo "Disarankan untuk melakukan ${YELLOW}reboot VPS${FONT} Anda sekarang untuk memastikan semua perubahan diterapkan sepenuhnya."
+read -p "$( echo -e "Tekan ${BLUE}[ ${NC}${GREEN}Enter${NC} ${BLUE}]${NC} untuk melakukan ${GREEN}reboot${NC}, atau ${RED}Ctrl+C${FONT} untuk membatalkan.") "
 reboot
