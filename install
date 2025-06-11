@@ -209,6 +209,7 @@ function base_package() {
     print_install "Menginstall Packet Yang Dibutuhkan"
     apt install zip pwgen openssl netcat socat cron bash-completion -y
     apt install figlet -y
+    apt install socat -y
     apt update -y
     apt upgrade -y
     apt dist-upgrade -y
