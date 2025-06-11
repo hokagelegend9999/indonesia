@@ -165,24 +165,30 @@ function first_setup(){
     echo iptables-persistent iptables-persistent/autosave_v6 boolean true | debconf-set-selections
     print_success "Directory Xray"
     if [[ $(cat /etc/os-release | grep -w ID | head -n1 | sed 's/=//g' | sed 's/"//g' | sed 's/ID//g') == "ubuntu" ]]; then
-    echo "Setup Dependencies $(cat /etc/os-release | grep -w PRETTY_NAME | head -n1 | sed 's/=//g' | sed 's/"//g' | sed 's/PRETTY_NAME//g')"
-    sudo apt update -y
-    apt-get install --no-install-recommends software-properties-common
-    add-apt-repository ppa:vbernat/haproxy-2.0 -y
-    apt-get -y install haproxy=2.0.\*
-elif [[ $(cat /etc/os-release | grep -w ID | head -n1 | sed 's/=//g' | sed 's/"//g' | sed 's/ID//g') == "debian" ]]; then
-    echo "Setup Dependencies For OS Is $(cat /etc/os-release | grep -w PRETTY_NAME | head -n1 | sed 's/=//g' | sed 's/"//g' | sed 's/PRETTY_NAME//g')"
-    curl https://haproxy.debian.net/bernat.debian.org.gpg |
-        gpg --dearmor >/usr/share/keyrings/haproxy.debian.net.gpg
-    echo deb "[signed-by=/usr/share/keyrings/haproxy.debian.net.gpg]" \
-        http://haproxy.debian.net buster-backports-1.8 main \
-        >/etc/apt/sources.list.d/haproxy.list
-    sudo apt-get update
-    apt-get -y install haproxy=1.8.\*
-else
-    echo -e " Your OS Is Not Supported ($(cat /etc/os-release | grep -w PRETTY_NAME | head -n1 | sed 's/=//g' | sed 's/"//g' | sed 's/PRETTY_NAME//g') )"
-    exit 1
-fi
+        echo "Setup Dependencies $(cat /etc/os-release | grep -w PRETTY_NAME | head -n1 | sed 's/=//g' | sed 's/"//g' | sed 's/PRETTY_NAME//g')"
+        sudo apt update -y
+        # --- PERBAIKAN DIMULAI DI SINI ---
+        # Hapus penambahan PPA vbernat/haproxy-2.0 karena tidak tersedia untuk Noble
+        # apt-get install --no-install-recommends software-properties-common # Ini sudah ada di base_package
+        # add-apt-repository ppa:vbernat/haproxy-2.0 -y # HAPUS BARIS INI
+        # apt-get -y install haproxy=2.0.\* # HAPUS BARIS INI (akan diinstal nanti dari repo default)
+        
+        # Haproxy akan diinstal dari repositori default Ubuntu 24.04 di fungsi base_package
+        # karena versi yang lebih baru tersedia di sana.
+        # --- PERBAIKAN SELESAI DI SINI ---
+    elif [[ $(cat /etc/os-release | grep -w ID | head -n1 | sed 's/=//g' | sed 's/"//g' | sed 's/ID//g') == "debian" ]]; then
+        echo "Setup Dependencies For OS Is $(cat /etc/os-release | grep -w PRETTY_NAME | head -n1 | sed 's/=//g' | sed 's/"//g' | sed 's/PRETTY_NAME//g')"
+        curl https://haproxy.debian.net/bernat.debian.org.gpg | \
+            gpg --dearmor >/usr/share/keyrings/haproxy.debian.net.gpg
+        echo deb "[signed-by=/usr/share/keyrings/haproxy.debian.net.gpg]" \
+            http://haproxy.debian.net buster-backports-1.8 main \
+            >/etc/apt/sources.list.d/haproxy.list
+        sudo apt-get update
+        apt-get -y install haproxy=1.8.\*
+    else
+        echo -e " Your OS Is Not Supported ($(cat /etc/os-release | grep -w PRETTY_NAME | head -n1 | sed 's/=//g' | sed 's/"//g' | sed 's/PRETTY_NAME//g') )"
+        exit 1
+    fi
 }
 
 # GEO PROJECT
@@ -207,9 +213,12 @@ function base_package() {
     clear
     ########
     print_install "Menginstall Packet Yang Dibutuhkan"
-    apt install zip pwgen openssl netcat socat cron bash-completion -y
+    # --- PERBAIKAN DIMULAI DI SINI ---
+    # Ganti 'netcat' dengan 'netcat-openbsd'
+    # Tambahkan 'haproxy' di sini untuk Ubuntu 24.04
+    apt install zip pwgen openssl netcat-openbsd socat cron bash-completion haproxy -y
+    # --- PERBAIKAN SELESAI DI SINI ---
     apt install figlet -y
-    apt install socat -y
     apt update -y
     apt upgrade -y
     apt dist-upgrade -y
@@ -222,7 +231,7 @@ function base_package() {
     apt install ntpdate -y
     ntpdate pool.ntp.org
     apt install sudo -y
-    apt install ruby -y 
+    apt install ruby -y
     gem install lolcat
     sudo apt-get clean all
     sudo apt-get autoremove -y
@@ -233,8 +242,7 @@ function base_package() {
     echo iptables-persistent iptables-persistent/autosave_v4 boolean true | debconf-set-selections
     echo iptables-persistent iptables-persistent/autosave_v6 boolean true | debconf-set-selections
     sudo apt-get install -y speedtest-cli vnstat libnss3-dev libnspr4-dev pkg-config libpam0g-dev libcap-ng-dev libcap-ng-utils libselinux1-dev libcurl4-nss-dev flex bison make libnss3-tools libevent-dev bc rsyslog dos2unix zlib1g-dev libssl-dev libsqlite3-dev sed dirmngr libxml-parser-perl build-essential gcc g++ python htop lsof tar wget curl ruby zip unzip p7zip-full python3-pip libc6 util-linux build-essential msmtp-mta ca-certificates bsd-mailx iptables iptables-persistent netfilter-persistent net-tools openssl ca-certificates gnupg gnupg2 ca-certificates lsb-release gcc shc make cmake git screen socat xz-utils apt-transport-https gnupg1 dnsutils cron bash-completion ntpdate chrony jq openvpn easy-rsa
-    print_success "Packet Yang Dibutuhkan"
-    
+    print_success "Packet Yang Dibutuhkan"    
 }
 clear
 # Fungsi input domain
