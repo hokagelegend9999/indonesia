@@ -248,6 +248,44 @@ function base_package() {
     echo iptables-persistent iptables-persistent/autosave_v6 boolean true | debconf-set-selections
     sudo apt-get install -y speedtest-cli vnstat libnss3-dev libnspr4-dev pkg-config libpam0g-dev libcap-ng-dev libcap-ng-utils libselinux1-dev libcurl4-nss-dev flex bison make libnss3-tools libevent-dev bc rsyslog dos2unix zlib1g-dev libssl-dev libsqlite3-dev sed dirmngr libxml-parser-perl build-essential gcc g++ python htop lsof tar wget curl ruby zip unzip p7zip-full python3-pip libc6 util-linux build-essential msmtp-mta ca-certificates bsd-mailx iptables iptables-persistent netfilter-persistent net-tools openssl ca-certificates gnupg gnupg2 ca-certificates lsb-release gcc shc make cmake git screen socat xz-utils apt-transport-https gnupg1 dnsutils cron bash-completion ntpdate chrony jq openvpn easy-rsa
     print_success "Packet Yang Dibutuhkan"
+# Hentikan layanan yang mungkin bermasalah dulu (jika masih mencoba running)
+sudo systemctl stop openvpn &>/dev/null
+sudo systemctl stop fail2ban &>/dev/null
+
+# Hapus instalasi yang mungkin korup
+sudo apt-get purge --auto-remove -y openvpn fail2ban &>/dev/null
+
+# Instal ulang paket-paket tersebut untuk memastikan unit systemd dibuat
+echo "Menginstal ulang OpenVPN..."
+sudo apt-get update -y
+sudo apt-get install -y openvpn &>/dev/null
+if [ $? -eq 0 ]; then
+    echo "OpenVPN berhasil diinstal ulang."
+else
+    echo "Gagal menginstal OpenVPN. Mungkin ada masalah repositori."
+fi
+
+echo "Menginstal ulang Fail2ban..."
+sudo apt-get install -y fail2ban &>/dev/null
+if [ $? -eq 0 ]; then
+    echo "Fail2ban berhasil diinstal ulang."
+else
+    echo "Gagal menginstal Fail2ban. Mungkin ada masalah repositori."
+fi
+
+# Muat ulang systemd daemon untuk mendeteksi unit service yang baru
+sudo systemctl daemon-reload
+
+# Aktifkan dan mulai layanan
+echo "Mengaktifkan dan memulai layanan OpenVPN..."
+sudo systemctl enable openvpn &>/dev/null
+sudo systemctl start openvpn &>/dev/null
+sudo systemctl status openvpn | head -n 3 # Cek status singkat
+
+echo "Mengaktifkan dan memulai layanan Fail2ban..."
+sudo systemctl enable fail2ban &>/dev/null
+sudo systemctl start fail2ban &>/dev/null
+sudo systemctl status fail2ban | head -n 3 # Cek status singkat
 }
 clear
 # Fungsi input domain
