@@ -13,16 +13,16 @@ NC='\e[0m' # No Color
 # --- Fungsi Pembantu ---
 print_success() {
     echo -e "${GREEN}===============================${FONT}"
-    echo -e "${OK} $1 berhasil dihapus."
+    echo -e "${OK} $1 berhasil diproses."
     echo -e "${GREEN}===============================${FONT}"
-    sleep 0.5 # Sedikit jeda agar output terbaca
+    sleep 0.5
 }
 
 print_uninstall() {
     echo -e "${BLUE}===============================${FONT}"
-    echo -e "${YELLOW}# Menghapus $1 ${FONT}"
+    echo -e "${YELLOW}# Memproses: $1 ${FONT}"
     echo -e "${BLUE}===============================${FONT}"
-    sleep 0.5 # Sedikit jeda agar output terbaca
+    sleep 0.5
 }
 
 # --- Proses Utama ---
@@ -48,26 +48,11 @@ echo -e "${BLUE}Memulai proses uninstal...${NC}"
 echo ""
 
 # --- 1. Menghentikan dan Menonaktifkan Layanan ---
-print_uninstall "Menghentikan dan menonaktifkan layanan..."
+print_uninstall "Menghentikan dan menonaktifkan layanan"
 
-# Daftar layanan yang akan dihentikan dan dinonaktifkan
 SERVICES=(
-    "nginx"
-    "xray"
-    "haproxy"
-    "dropbear"
-    "openvpn"
-    "udp-mini-1"
-    "udp-mini-2"
-    "udp-mini-3"
-    "ws" # ePro WebSocket Proxy
-    "fail2ban"
-    "vnstat"
-    "noobzvpns" # Jika service ini benar ada
-    # "ssh" TIDAK DIMASUKKAN DI SINI AGAR SSH TETAP JALAN
-    # "cron" TIDAK DIMASUKKAN DI SINI AGAR CRON TETAP JALAN
-    # "netfilter-persistent" TIDAK DIMASUKKAN AGAR ATURAN FIREWALL DASAR TETAP DIKELOLA
-    # "rc-local" TIDAK DIMASUKKAN AGAR INITIAL SCRIPT TETAP JALAN
+    "nginx" "xray" "haproxy" "dropbear" "openvpn" "fail2ban" "vnstat"
+    "udp-mini-1" "udp-mini-2" "udp-mini-3" "ws" "noobzvpns"
 )
 
 for svc in "${SERVICES[@]}"; do
@@ -84,131 +69,70 @@ done
 print_success "Layanan dihentikan dan dinonaktifkan"
 
 # --- 2. Menghapus Cron Jobs ---
-print_uninstall "Menghapus Cron jobs..."
-rm -f /etc/cron.d/xp_all &>/dev/null
-rm -f /etc/cron.d/logclean &>/dev/null
-rm -f /etc/cron.d/daily_reboot &>/dev/null
-rm -f /etc/cron.d/limit_ip &>/dev/null
-rm -f /etc/cron.d/lim-ip-ssh &>/dev/null
-rm -f /etc/cron.d/limit_ip2 &>/dev/null
-rm -f /etc/cron.d/log.nginx &>/dev/null
-rm -f /etc/cron.d/log.xray &>/dev/null
+print_uninstall "Menghapus Cron jobs"
+rm -f /etc/cron.d/{xp_all,logclean,daily_reboot,limit_ip,lim-ip-ssh,limit_ip2,log.nginx,log.xray} &>/dev/null
 print_success "Cron jobs"
 
 # --- 3. Menghapus Paket Aplikasi ---
-print_uninstall "Menghapus paket aplikasi dan dependensi..."
+print_uninstall "Menghapus paket aplikasi dan dependensi"
 
-# Pastikan untuk menghapus paket yang relevan dengan VPN/proxy
 PACKAGES=(
-    "haproxy"
-    "nginx"
-    "xray" # Xray core tidak diinstal melalui apt, tapi ini untuk jaga-jaga
-    "dropbear"
-    "openvpn"
-    "vnstat"
-    "wondershaper"
-    "rclone"
-    "msmtp-mta"
-    "fail2ban"
-    "figlet" # Opsional, jika hanya untuk script
-    "lolcat" # Opsional, jika hanya untuk script
-    "socat" # Jika hanya digunakan oleh komponen VPN
-    "netcat-openbsd" # Ganti 'netcat' dengan yang benar jika ini yang terinstal
-    "easy-rsa" # Jika hanya untuk OpenVPN
-    "jq" # Jika hanya untuk script
-    "shc" # Jika hanya untuk script
+    "haproxy" "nginx" "xray" "dropbear" "openvpn" "vnstat" "wondershaper"
+    "rclone" "msmtp-mta" "fail2ban" "figlet" "lolcat" "socat"
+    "netcat-openbsd" "easy-rsa" "jq" "shc" "noobzvpns"
 )
 
 for pkg in "${PACKAGES[@]}"; do
     echo -e "  ${YELLOW}*${FONT} Menghapus paket $pkg..."
     apt-get purge --auto-remove -y "$pkg" &>/dev/null
 done
-
-# Hapus paket yang mungkin terinstal secara spesifik
-apt-get purge --auto-remove -y noobzvpns &>/dev/null # Jika noobzvpns terinstal sebagai paket
 apt-get autoremove -y &>/dev/null
 apt-get clean -y &>/dev/null
 print_success "Paket aplikasi"
 
 # --- 4. Menghapus File dan Direktori Terkait ---
-print_uninstall "Menghapus file dan direktori konfigurasi..."
+print_uninstall "Menghapus file dan direktori konfigurasi"
 
-# Daftar direktori yang akan dihapus
-# Hati-hati agar tidak menghapus direktori sistem penting.
 DIRECTORIES=(
-    "/etc/xray"
-    "/var/log/xray"
-    "/var/lib/kyt"
-    "/etc/haproxy"
-    "/root/.acme.sh"
-    "/etc/vmess"
-    "/etc/vless"
-    "/etc/trojan"
-    "/etc/shadowsocks"
-    "/etc/bot"
-    "/var/www/html" # Jika hanya digunakan untuk web panel Xray/Nginx
-    "/etc/kyt/limit"
-    "/etc/limit"
-    "/etc/user-create"
-    "/usr/local/kyt" # Untuk udp-mini
-    "/usr/local/ddos" # DDOS flate
-    "/root/.config/rclone" # Konfigurasi Rclone
-    "/home/limit" # File limit pengguna
-    "/root/.info" # Info IP yang dibuat oleh skrip
-    "/etc/systemd/system/xray.service.d" # Direktori service D
-    "/usr/local/share/xray"
-    # PERHATIAN: Direktori berikut adalah lokasi umum untuk biner/skrip kustom.
-    # Penghapusan ini bersifat rekursif dan akan menghapus SEMUA isinya.
-    # Pastikan tidak ada program/skrip lain yang penting di dalamnya.
-    "/usr/local/sbin"
-    "/usr/local/bin"
-    "/usr/local/etc"
+    "/etc/xray" "/var/log/xray" "/var/lib/kyt" "/etc/haproxy" "/root/.acme.sh"
+    "/etc/vmess" "/etc/vless" "/etc/trojan" "/etc/shadowsocks" "/etc/bot"
+    "/var/www/html" "/etc/kyt/limit" "/etc/limit" "/etc/user-create"
+    "/usr/local/kyt" "/usr/local/ddos" "/root/.config/rclone" "/home/limit"
+    "/root/.info" "/etc/systemd/system/xray.service.d" "/usr/local/share/xray"
+    "/usr/local/sbin" "/usr/local/bin" "/usr/local/etc"
 )
 
-# Daftar file yang akan dihapus
 FILES=(
-    "/etc/nginx/conf.d/xray.conf"
-    "/etc/nginx/nginx.conf"
-    "/etc/systemd/system/runn.service"
-    "/etc/systemd/system/xray.service"
-    "/etc/systemd/system/udp-mini-1.service"
-    "/etc/systemd/system/udp-mini-2.service"
-    "/etc/systemd/system/udp-mini-3.service"
-    "/etc/systemd/system/ws.service"
-    "/etc/systemd/system/noobzvpns.service"
-    "/tmp/nameserver" # File SlowDNS sementara
-    "/etc/kyt.txt" # Banner SSH/Dropbear
-    "/usr/bin/ws" # Binary ePro WebSocket
-    "/usr/bin/tun.conf" # Konfigurasi ePro WebSocket
-    "/usr/sbin/ftvpn" # Script firewall kustom
-    "/usr/bin/user" # File username script
-    "/usr/bin/e" # File expired script
-    "/usr/bin/xray" # Biner Xray
-    "/bin/wondershaper" # Skrip Wondershaper
-    "/swapfile" # File swap
-    "/etc/msmtprc" # Konfigurasi Msmtp
-    "/etc/ipserver" # File ipserver
-    "/root/install.log"
-    "/root/log-install.txt"
-    "/root/openvpn" # Script OpenVPN
-    "/root/key.pem" # Sisa key OpenVPN
-    "/root/cert.pem" # Sisa cert OpenVPN
-    "/root/menu.zip" # Sisa instalasi menu
-    "/root/noobzvpns.zip" # Sisa instalasi noobzvpns
-    "/root/cf.sh" # Sisa script cloudflare
-    "/root/bbr.sh" # Sisa script bbr
-    "/root/udp-custom.sh" # Sisa script udp-custom
+    "/etc/nginx/conf.d/xray.conf" "/etc/nginx/nginx.conf" "/swapfile" "/etc/msmtprc"
+    "/etc/ipserver" "/etc/systemd/system/runn.service" "/etc/systemd/system/xray.service"
+    "/etc/systemd/system/udp-mini-1.service" "/etc/systemd/system/udp-mini-2.service"
+    "/etc/systemd/system/udp-mini-3.service" "/etc/systemd/system/ws.service"
+    "/etc/systemd/system/noobzvpns.service" "/tmp/nameserver" "/etc/kyt.txt"
+    "/usr/bin/ws" "/usr/bin/tun.conf" "/usr/sbin/ftvpn" "/usr/bin/user"
+    "/usr/bin/e" "/usr/bin/xray" "/bin/wondershaper" "/root/install.log"
+    "/root/log-install.txt" "/root/openvpn" "/root/key.pem" "/root/cert.pem"
 )
 
+# Hapus direktori dengan logging error
 for dir in "${DIRECTORIES[@]}"; do
     if [ -d "$dir" ]; then
+        echo -e "  ${YELLOW}*${FONT} Menghapus atribut terkunci dari $dir..."
+        chattr -R -i "$dir" &>/dev/null
         echo -e "  ${YELLOW}*${FONT} Menghapus direktori $dir..."
-        rm -rf "$dir" &>/dev/null
+        rm -rf "$dir"
+        if [ $? -ne 0 ]; then
+            echo -e "  ${ERROR} Gagal menghapus direktori $dir. Periksa galat di atas."
+        else
+            echo -e "  ${OK} Direktori $dir berhasil dihapus."
+        fi
     fi
 done
 
+# Hapus file individual
 for file in "${FILES[@]}"; do
-    if [ -f "$file" ]; then
+    if [ -f "$file" ]; an
+        echo -e "  ${YELLOW}*${FONT} Menghapus atribut terkunci dari $file..."
+        chattr -i "$file" &>/dev/null
         echo -e "  ${YELLOW}*${FONT} Menghapus file $file..."
         rm -f "$file" &>/dev/null
     fi
@@ -216,87 +140,58 @@ done
 
 print_success "File dan direktori konfigurasi"
 
-# --- 5. Memulihkan Konfigurasi Sistem Dasar (Tanpa Mengganggu SSH) ---
-print_uninstall "Memulihkan konfigurasi sistem dasar..."
+# --- 5. Memulihkan Konfigurasi Sistem Dasar ---
+print_uninstall "Memulihkan konfigurasi sistem dasar"
 
-# Pulihkan /etc/pam.d/common-password ke default
+# Pulihkan /etc/pam.d/common-password
 if [ -f /etc/pam.d/common-password.bak ]; then
     mv /etc/pam.d/common-password.bak /etc/pam.d/common-password &>/dev/null
-    echo -e "  ${OK} /etc/pam.d/common-password berhasil dipulihkan dari cadangan."
+    echo -e "  ${OK} /etc/pam.d/common-password dipulihkan."
 else
-    echo -e "  ${YELLOW}Peringatan: File /etc/pam.d/common-password.bak tidak ditemukan. Membiarkan file saat ini.${NC}"
-    echo -e "  ${YELLOW}Jika SSH bermasalah, pertimbangkan menginstal ulang 'libpam-runtime' atau 'openssh-server'.${NC}"
+    echo -e "  ${YELLOW}Peringatan: Cadangan /etc/pam.d/common-password tidak ditemukan.${NC}"
 fi
 
-# Hapus baris tambahan dari /etc/rc.local yang ditambahkan oleh skrip Anda
-sed -i '/iptables -I INPUT -p udp --dport 5300 -j ACCEPT/d' /etc/rc.local &>/dev/null
-sed -i '/iptables -t nat -I PREROUTing -p udp --dport 53 -j REDIRECT --to-ports 5300/d' /etc/rc.local &>/dev/null
+# Bersihkan /etc/rc.local
+sed -i '/iptables/d' /etc/rc.local &>/dev/null
 sed -i '/systemctl restart netfilter-persistent/d' /etc/rc.local &>/dev/null
-sed -i '/echo 1 > \/proc\/sys\/net\/ipv6\/conf\/all\/disable_ipv6/d' /etc/rc.local &>/dev/null
-# Pastikan isi rc.local tidak kosong jika hanya baris ini yang ada
-if ! grep -q "#!/bin/sh -e" /etc/rc.local; then
-    cat > /etc/rc.local <<EOF
-#!/bin/sh -e
-#
-# rc.local
-#
-# This script is executed at the end of each multiuser runlevel.
-# Make sure that the script will "exit 0" on success or any other
-# value on error.
-#
-# In order to enable or disable this script just change the execution
-# bits.
-#
-# By default this script does nothing.
-
-exit 0
-EOF
-chmod +x /etc/rc.local &>/dev/null
-fi
+sed -i '/disable_ipv6/d' /etc/rc.local &>/dev/null
 echo -e "  ${OK} /etc/rc.local dibersihkan."
 
-# Hapus baris "Banner /etc/kyt.txt" dari sshd_config
+# Bersihkan konfigurasi SSH
 sed -i '/^Banner \/etc\/kyt.txt/d' /etc/ssh/sshd_config &>/dev/null
-echo -e "  ${OK} Banner SSH dihapus dari sshd_config."
-
-# Reset DROPBEAR_BANNER di /etc/default/dropbear
 sed -i 's@DROPBEAR_BANNER="/etc/kyt.txt"@DROPBEAR_BANNER=""@g' /etc/default/dropbear &>/dev/null
-echo -e "  ${OK} Banner Dropbear direset."
+echo -e "  ${OK} Banner SSH dan Dropbear dihapus."
 
-print_success "Konfigurasi sistem dasar dipulihkan"
+print_success "Konfigurasi sistem dasar"
 
 # --- 6. Membersihkan Aturan IPTables ---
-print_uninstall "Membersihkan aturan iptables..."
-iptables -F &>/dev/null
-iptables -X &>/dev/null
-iptables -t nat -F &>/dev/null
-iptables -t nat -X &>/dev/null
-iptables -t mangle -F &>/dev/null
-iptables -t mangle -X &>/dev/null
-netfilter-persistent save &>/dev/null
-netfilter-persistent reload &>/dev/null
+print_uninstall "Membersihkan aturan iptables"
+{
+    iptables -F
+    iptables -X
+    iptables -t nat -F
+    iptables -t nat -X
+    iptables -t mangle -F
+    iptables -t mangle -X
+    netfilter-persistent save
+    netfilter-persistent reload
+} &>/dev/null
 echo -e "  ${OK} Aturan iptables telah direset."
 print_success "Aturan iptables"
 
 # --- 7. Membersihkan Sisa File Skrip ---
-print_uninstall "Membersihkan sisa file skrip..."
-rm -f /root/*.zip &>/dev/null
-rm -f /root/*.sh &>/dev/null
-rm -f /root/LICENSE &>/dev/null
-rm -f /root/README.md &>/dev/null
-rm -f /root/domain &>/dev/null # File domain
+print_uninstall "Membersihkan sisa file skrip"
+rm -f /root/*.zip /root/*.sh /root/LICENSE /root/README.md /root/domain &>/dev/null
 print_success "Sisa file skrip"
 
-# --- 8. Memastikan SSH Berfungsi dan Restart yang Bersih ---
-print_uninstall "Memastikan layanan SSH dan membersihkan sisa konfigurasi..."
+# --- 8. Finalisasi ---
+print_uninstall "Finalisasi dan restart SSH"
 systemctl restart ssh &>/dev/null
-echo -e "  ${OK} Layanan SSH telah di-restart untuk menerapkan perubahan."
+echo -e "  ${OK} Layanan SSH di-restart."
 
-# Membersihkan riwayat bash
 history -c
-echo "unset HISTFILE" >> /etc/profile # Pastikan tidak ada riwayat yang disimpan
-
-print_success "Layanan SSH dipastikan & bersih-bersih akhir"
+echo "unset HISTFILE" >> /etc/profile
+print_success "Pembersihan akhir"
 
 echo ""
 echo -e "${GREEN}----------------------------------------------------------${NC}"
@@ -305,6 +200,6 @@ echo -e " Semua layanan VPN/proxy dan konfigurasinya telah dihapus."
 echo -e "                  ${GREEN}Akses SSH Anda tetap aktif.${NC}"
 echo -e "${GREEN}----------------------------------------------------------${NC}"
 echo ""
-echo "Disarankan untuk melakukan ${YELLOW}reboot VPS${FONT} Anda sekarang untuk memastikan semua perubahan diterapkan sepenuhnya."
-read -p "$( echo -e "Tekan ${BLUE}[ ${NC}${GREEN}Enter${NC} ${BLUE}]${NC} untuk melakukan ${GREEN}reboot${NC}, atau ${RED}Ctrl+C${FONT} untuk membatalkan.") "
+echo "Sangat disarankan untuk melakukan ${YELLOW}reboot VPS${FONT} Anda sekarang."
+read -p "$( echo -e "Tekan ${BLUE}[ ${NC}${GREEN}Enter${NC} ${BLUE}]${NC} untuk ${GREEN}reboot${NC}, atau ${RED}Ctrl+C${FONT} untuk membatalkan.") "
 reboot
