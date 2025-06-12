@@ -690,7 +690,7 @@ function ins_openvpn(){
 clear
 print_install "Menginstall OpenVPN"
 #OpenVPN
-wget https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/config/openvpn  chmod +x openvpn && ./openvpn
+wget https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/config/openvpn && chmod +x openvpn && ./openvpn
 /etc/init.d/openvpn restart
 print_success "OpenVPN"
 }
@@ -874,12 +874,15 @@ print_success "All Packet"
 function menu(){
     clear
     print_install "Memasang Menu Packet"
-    wget ${REPO}Menu/menu.zip
+    wget ${REPO}menu/menu.zip
     unzip menu.zip
     chmod +x menu/*
     mv menu/* /usr/local/sbin
     rm -rf menu
     rm -rf menu.zip
+    wget ${REPO}menu/menu
+    chmod +x menu/*
+    mv menu /usr/local/sbin
 }
 
 # Membaut Default Menu 
