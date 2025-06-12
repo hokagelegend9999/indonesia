@@ -28,10 +28,10 @@ print_uninstall() {
 # --- Proses Utama ---
 clear
 echo -e "${YELLOW}----------------------------------------------------------${NC}"
-echo -e "         SELAMAT DATANG DI HOKAGE LEGEND STORE VPN UNINSTALLER"
+echo -e "         SELAMAT DATANG DI HOKAGE LEGEND STORE VPN UNINSTALLER (FINAL)"
 echo -e "${YELLOW}----------------------------------------------------------${NC}"
 echo -e " Skrip ini akan menghapus semua layanan VPN/proxy dan konfigurasinya,"
-echo -e " **tetapi akan memastikan SSH tetap berfungsi**."
+echo -e " **dan akan mencoba mematikan paksa proses yang terkunci**."
 echo -e "${YELLOW}----------------------------------------------------------${NC}"
 echo ""
 
@@ -41,20 +41,18 @@ if [ "${EUID}" -ne 0 ]; then
     exit 1
 fi
 
-read -p "$( echo -e "Tekan ${BLUE}[ ${NC}${GREEN}Enter${NC} ${BLUE}]${NC} untuk memulai proses uninstal, atau ${RED}Ctrl+C${FONT} untuk membatalkan.") "
+read -p "$( echo -e "Tekan ${BLUE}[ ${NC}${GREEN}Enter${NC} ${BLUE}]${NC} untuk memulai, atau ${RED}Ctrl+C${FONT} untuk batal.") "
 echo ""
 
 echo -e "${BLUE}Memulai proses uninstal...${NC}"
 echo ""
 
-# --- 1. Menghentikan dan Menonaktifkan Layanan ---
-print_uninstall "Menghentikan dan menonaktifkan layanan"
-
+# --- 1. Menghentikan Layanan Systemd ---
+print_uninstall "Menghentikan layanan Systemd"
 SERVICES=(
     "nginx" "xray" "haproxy" "dropbear" "openvpn" "fail2ban" "vnstat"
     "udp-mini-1" "udp-mini-2" "udp-mini-3" "ws" "noobzvpns"
 )
-
 for svc in "${SERVICES[@]}"; do
     if systemctl is-active --quiet "$svc"; then
         echo -e "  ${YELLOW}*${FONT} Menghentikan $svc..."
@@ -65,34 +63,41 @@ for svc in "${SERVICES[@]}"; do
         systemctl disable "$svc" &>/dev/null
     fi
 done
+print_success "Layanan Systemd"
 
-print_success "Layanan dihentikan dan dinonaktifkan"
+# --- 2. Mematikan Paksa Proses yang Terkunci ---
+print_uninstall "Mematikan paksa proses yang berjalan dari /usr/local/"
+TARGET_DIRS=("/usr/local/sbin" "/usr/local/bin")
+for dir in "${TARGET_DIRS[@]}"; do
+    echo "Mencari proses di direktori: $dir"
+    # Cari PID dari proses yang executablenya ada di dalam direktori target
+    PIDS=$(lsof +D "$dir" | awk 'NR>1 {print $2}' | sort -u)
+    if [ -n "$PIDS" ]; then
+        for pid in $PIDS; do
+            echo -e "  ${RED}*${FONT} Ditemukan proses terkunci dengan PID: $pid. Mematikan paksa..."
+            kill -9 "$pid" &>/dev/null
+        done
+    else
+        echo "  ${GREEN}*${FONT} Tidak ada proses aktif yang ditemukan di $dir."
+    fi
+done
+print_success "Proses terkunci"
 
-# --- 2. Menghapus Cron Jobs ---
-print_uninstall "Menghapus Cron jobs"
+# --- 3. Menghapus Cron & Paket ---
+print_uninstall "Menghapus Cron jobs dan Paket Aplikasi"
 rm -f /etc/cron.d/{xp_all,logclean,daily_reboot,limit_ip,lim-ip-ssh,limit_ip2,log.nginx,log.xray} &>/dev/null
-print_success "Cron jobs"
-
-# --- 3. Menghapus Paket Aplikasi ---
-print_uninstall "Menghapus paket aplikasi dan dependensi"
-
 PACKAGES=(
     "haproxy" "nginx" "xray" "dropbear" "openvpn" "vnstat" "wondershaper"
     "rclone" "msmtp-mta" "fail2ban" "figlet" "lolcat" "socat"
-    "netcat-openbsd" "easy-rsa" "jq" "shc" "noobzvpns"
+    "netcat-openbsd" "easy-rsa" "jq" "shc" "noobzvpns" "lsof"
 )
-
-for pkg in "${PACKAGES[@]}"; do
-    echo -e "  ${YELLOW}*${FONT} Menghapus paket $pkg..."
-    apt-get purge --auto-remove -y "$pkg" &>/dev/null
-done
+apt-get purge --auto-remove -y "${PACKAGES[@]}" &>/dev/null
 apt-get autoremove -y &>/dev/null
-apt-get clean -y &>/dev/null
-print_success "Paket aplikasi"
+apt-get clean &>/dev/null
+print_success "Cron & Paket"
 
 # --- 4. Menghapus File dan Direktori Terkait ---
 print_uninstall "Menghapus file dan direktori konfigurasi"
-
 DIRECTORIES=(
     "/etc/xray" "/var/log/xray" "/var/lib/kyt" "/etc/haproxy" "/root/.acme.sh"
     "/etc/vmess" "/etc/vless" "/etc/trojan" "/etc/shadowsocks" "/etc/bot"
@@ -101,105 +106,44 @@ DIRECTORIES=(
     "/root/.info" "/etc/systemd/system/xray.service.d" "/usr/local/share/xray"
     "/usr/local/sbin" "/usr/local/bin" "/usr/local/etc"
 )
-
-FILES=(
-    "/etc/nginx/conf.d/xray.conf" "/etc/nginx/nginx.conf" "/swapfile" "/etc/msmtprc"
-    "/etc/ipserver" "/etc/systemd/system/runn.service" "/etc/systemd/system/xray.service"
-    "/etc/systemd/system/udp-mini-1.service" "/etc/systemd/system/udp-mini-2.service"
-    "/etc/systemd/system/udp-mini-3.service" "/etc/systemd/system/ws.service"
-    "/etc/systemd/system/noobzvpns.service" "/tmp/nameserver" "/etc/kyt.txt"
-    "/usr/bin/ws" "/usr/bin/tun.conf" "/usr/sbin/ftvpn" "/usr/bin/user"
-    "/usr/bin/e" "/usr/bin/xray" "/bin/wondershaper" "/root/install.log"
-    "/root/log-install.txt" "/root/openvpn" "/root/key.pem" "/root/cert.pem"
-)
-
-# Hapus direktori dengan logging error
 for dir in "${DIRECTORIES[@]}"; do
     if [ -d "$dir" ]; then
-        echo -e "  ${YELLOW}*${FONT} Menghapus atribut terkunci dari $dir..."
-        chattr -R -i "$dir" &>/dev/null
-        echo -e "  ${YELLOW}*${FONT} Menghapus direktori $dir..."
+        echo -e "  ${YELLOW}*${FONT} Memproses penghapusan untuk: $dir"
+        chattr -R -i "$dir"
         rm -rf "$dir"
-        if [ $? -ne 0 ]; then
-            echo -e "  ${ERROR} Gagal menghapus direktori $dir. Periksa galat di atas."
-        else
-            echo -e "  ${OK} Direktori $dir berhasil dihapus."
-        fi
     fi
 done
+print_success "File & Direktori"
 
-# Hapus file individual
-for file in "${FILES[@]}"; do
-    if [ -f "$file" ]; an
-        echo -e "  ${YELLOW}*${FONT} Menghapus atribut terkunci dari $file..."
-        chattr -i "$file" &>/dev/null
-        echo -e "  ${YELLOW}*${FONT} Menghapus file $file..."
-        rm -f "$file" &>/dev/null
-    fi
-done
-
-print_success "File dan direktori konfigurasi"
-
-# --- 5. Memulihkan Konfigurasi Sistem Dasar ---
-print_uninstall "Memulihkan konfigurasi sistem dasar"
-
-# Pulihkan /etc/pam.d/common-password
-if [ -f /etc/pam.d/common-password.bak ]; then
-    mv /etc/pam.d/common-password.bak /etc/pam.d/common-password &>/dev/null
-    echo -e "  ${OK} /etc/pam.d/common-password dipulihkan."
+# --- 5. Verifikasi Penghapusan ---
+print_uninstall "Verifikasi penghapusan /usr/local/sbin"
+if [ -d "/usr/local/sbin" ] && [ "$(ls -A /usr/local/sbin)" ]; then
+    echo -e "${ERROR} Gagal menghapus file di /usr/local/sbin secara otomatis."
+    echo -e "${YELLOW} Masalah ini lebih dalam dari yang diperkirakan. Mungkin ada modul kernel atau proses rootkit."
+    echo -e " Silakan coba hapus manual dengan 'rm -rf /usr/local/sbin/*' dan periksa log sistem.${NC}"
 else
-    echo -e "  ${YELLOW}Peringatan: Cadangan /etc/pam.d/common-password tidak ditemukan.${NC}"
+    echo -e "${OK} Direktori /usr/local/sbin berhasil dibersihkan."
 fi
+print_success "Verifikasi Selesai"
 
-# Bersihkan /etc/rc.local
-sed -i '/iptables/d' /etc/rc.local &>/dev/null
-sed -i '/systemctl restart netfilter-persistent/d' /etc/rc.local &>/dev/null
-sed -i '/disable_ipv6/d' /etc/rc.local &>/dev/null
-echo -e "  ${OK} /etc/rc.local dibersihkan."
-
-# Bersihkan konfigurasi SSH
+# --- 6. Pemulihan & Pembersihan Akhir ---
+print_uninstall "Memulihkan konfigurasi sistem & pembersihan akhir"
+# Hapus banner dari SSH & Dropbear
 sed -i '/^Banner \/etc\/kyt.txt/d' /etc/ssh/sshd_config &>/dev/null
 sed -i 's@DROPBEAR_BANNER="/etc/kyt.txt"@DROPBEAR_BANNER=""@g' /etc/default/dropbear &>/dev/null
-echo -e "  ${OK} Banner SSH dan Dropbear dihapus."
-
-print_success "Konfigurasi sistem dasar"
-
-# --- 6. Membersihkan Aturan IPTables ---
-print_uninstall "Membersihkan aturan iptables"
-{
-    iptables -F
-    iptables -X
-    iptables -t nat -F
-    iptables -t nat -X
-    iptables -t mangle -F
-    iptables -t mangle -X
-    netfilter-persistent save
-    netfilter-persistent reload
-} &>/dev/null
-echo -e "  ${OK} Aturan iptables telah direset."
-print_success "Aturan iptables"
-
-# --- 7. Membersihkan Sisa File Skrip ---
-print_uninstall "Membersihkan sisa file skrip"
-rm -f /root/*.zip /root/*.sh /root/LICENSE /root/README.md /root/domain &>/dev/null
-print_success "Sisa file skrip"
-
-# --- 8. Finalisasi ---
-print_uninstall "Finalisasi dan restart SSH"
+# Flush Iptables
+iptables-save | grep -v '^\*' | grep -v '^\:' | iptables-restore &>/dev/null
+# Restart SSH & bersihkan history
 systemctl restart ssh &>/dev/null
-echo -e "  ${OK} Layanan SSH di-restart."
-
-history -c
-echo "unset HISTFILE" >> /etc/profile
-print_success "Pembersihan akhir"
+history -c && echo "" > ~/.bash_history
+print_success "Sistem dibersihkan"
 
 echo ""
 echo -e "${GREEN}----------------------------------------------------------${NC}"
 echo -e "                  PROSES UNINSTALL SELESAI!"
-echo -e " Semua layanan VPN/proxy dan konfigurasinya telah dihapus."
 echo -e "                  ${GREEN}Akses SSH Anda tetap aktif.${NC}"
 echo -e "${GREEN}----------------------------------------------------------${NC}"
 echo ""
 echo "Sangat disarankan untuk melakukan ${YELLOW}reboot VPS${FONT} Anda sekarang."
-read -p "$( echo -e "Tekan ${BLUE}[ ${NC}${GREEN}Enter${NC} ${BLUE}]${NC} untuk ${GREEN}reboot${NC}, atau ${RED}Ctrl+C${FONT} untuk membatalkan.") "
+read -p "$( echo -e "Tekan ${BLUE}[ ${NC}${GREEN}Enter${NC} ${BLUE}]${NC} untuk ${GREEN}reboot${NC}, atau ${RED}Ctrl+C${FONT} untuk batal.") "
 reboot
