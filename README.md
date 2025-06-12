@@ -13,6 +13,7 @@ apt install -y && apt update -y && apt upgrade -y && wget -q https://github.com/
 
 ```
 cd root
-rm install
+rm uninstall
 apt install -y && apt update -y && apt upgrade -y && wget -q https://github.com/hokagelegend9999/indonesia/raw/refs/heads/main/uninstall && chmod +x uninstall && ./uninstall
+rm uninstall
 ```
