@@ -41,13 +41,14 @@
     },
     {
       "listen": "127.0.0.1",
-      "port": 1194,
+      "port": "10001",
       "protocol": "vless",
       "settings": {
         "decryption": "none",
         "clients": [
           {
             "id": "1d1c1d94-6987-4658-a4dc-8821a30fe7e0"
+#vless
           }
         ]
       },
@@ -55,18 +56,23 @@
         "network": "ws",
         "wsSettings": {
           "path": "/vless"
-        }
+        },
+        "proxyProtocol": "v2" // <--- DITAMBAHKAN DI SINI
       }
     },
     {
       "listen": "127.0.0.1",
-      "port": 1194,
+      "port": "10002",
       "protocol": "vmess",
       "settings": {
         "clients": [
           {
             "id": "1d1c1d94-6987-4658-a4dc-8821a30fe7e0",
             "alterId": 0
+#vmess
+### tes 2025-06-15
+          }, // <--- Perhatian: ada malformed array di sini!
+          {"id": "3da16cd6-1199-4029-b929-a14f3b917dc6","alterId": 0,"email": "tes"
           }
         ]
       },
@@ -74,18 +80,20 @@
         "network": "ws",
         "wsSettings": {
           "path": "/vmess"
-        }
+        },
+        "proxyProtocol": "v2" // <--- DITAMBAHKAN DI SINI
       }
     },
     {
       "listen": "127.0.0.1",
-      "port": 1194,
+      "port": "10003",
       "protocol": "trojan",
       "settings": {
         "decryption": "none",
         "clients": [
           {
             "password": "1d1c1d94-6987-4658-a4dc-8821a30fe7e0"
+#trojanws
           }
         ],
         "udp": true
@@ -94,18 +102,20 @@
         "network": "ws",
         "wsSettings": {
           "path": "/trojan-ws"
-        }
+        },
+        "proxyProtocol": "v2" // <--- DITAMBAHKAN DI SINI
       }
     },
     {
       "listen": "127.0.0.1",
-      "port": 1194,
+      "port": "10004",
       "protocol": "shadowsocks",
       "settings": {
         "clients": [
           {
             "method": "aes-128-gcm",
             "password": "1d1c1d94-6987-4658-a4dc-8821a30fe7e0"
+#ssws
           }
         ],
         "network": "tcp,udp"
@@ -114,18 +124,20 @@
         "network": "ws",
         "wsSettings": {
           "path": "/ss-ws"
-        }
+        },
+        "proxyProtocol": "v2" // <--- DITAMBAHKAN DI SINI
       }
     },
     {
       "listen": "127.0.0.1",
-      "port": 1012,
+      "port": "10005",
       "protocol": "vless",
       "settings": {
         "decryption": "none",
         "clients": [
           {
             "id": "1d1c1d94-6987-4658-a4dc-8821a30fe7e0"
+#vlessgrpc
           }
         ]
       },
@@ -134,18 +146,22 @@
         "grpcSettings": {
           "serviceName": "vless-grpc"
         },
-        "proxyProtocol": "v2"
+        "proxyProtocol": "v2" // Sudah ada dan benar
       }
     },
     {
       "listen": "127.0.0.1",
-      "port": 1012,
+      "port": "10006",
       "protocol": "vmess",
       "settings": {
         "clients": [
           {
             "id": "1d1c1d94-6987-4658-a4dc-8821a30fe7e0",
             "alterId": 0
+#vmessgrpc
+### tes 2025-06-15
+          }, // <--- Perhatian: ada malformed array di sini!
+          {"id": "3da16cd6-1199-4029-b929-a14f3b917dc6","alterId": 0,"email": "tes"
           }
         ]
       },
@@ -154,18 +170,19 @@
         "grpcSettings": {
           "serviceName": "vmess-grpc"
         },
-        "proxyProtocol": "v2"
+        "proxyProtocol": "v2" // Sudah ada dan benar
       }
     },
     {
       "listen": "127.0.0.1",
-      "port": 1012,
+      "port": "10007",
       "protocol": "trojan",
       "settings": {
         "decryption": "none",
         "clients": [
           {
             "password": "1d1c1d94-6987-4658-a4dc-8821a30fe7e0"
+#trojangrpc
           }
         ]
       },
@@ -174,18 +191,19 @@
         "grpcSettings": {
           "serviceName": "trojan-grpc"
         },
-        "proxyProtocol": "v2"
+        "proxyProtocol": "v2" // Sudah ada dan benar
       }
     },
     {
       "listen": "127.0.0.1",
-      "port": 1012,
+      "port": "10008",
       "protocol": "shadowsocks",
       "settings": {
         "clients": [
           {
             "method": "aes-128-gcm",
             "password": "1d1c1d94-6987-4658-a4dc-8821a30fe7e0"
+#ssgrpc
           }
         ],
         "network": "tcp,udp"
@@ -195,7 +213,7 @@
         "grpcSettings": {
           "serviceName": "ss-grpc"
         },
-        "proxyProtocol": "v2"
+        "proxyProtocol": "v2" // Sudah ada dan benar
       }
     }
   ],
